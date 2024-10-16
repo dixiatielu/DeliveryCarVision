@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="PublishConfigData" remoteFilesAllowedToDisappearOnAutoupload="false">
+    <serverData>
+      <paths name="orangepi-ROS2 (d792da7e-53a3-4e90-bb03-2706ef64edc6)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/tmp/tmp.rfHbmzgLZ4" local="$PROJECT_DIR$" />
+          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug-ros2" />
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug-orangepiros2" />
+          </excludedPaths>
+        </serverdata>
+      </paths>
+    </serverData>
+  </component>
+</project>
