@@ -28,6 +28,14 @@ target_link_libraries(color_circle_detector ${OpenCV_LIBS})
 install(TARGETS
         color_circle_detector
         DESTINATION lib/${PROJECT_NAME})
+# 安装 launch 文件
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+# 安装 config 文件夹
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

@@ -15,6 +15,17 @@ using namespace std::chrono_literals;
 class ColorCircleDetector : public rclcpp::Node {
 public:
     ColorCircleDetector() : Node("color_circle_detector") {
+        // 声明参数并设置默认值
+        this->declare_parameter<int>("camera_source", 0);
+        this->declare_parameter<int>("frame_width", 640);
+        this->declare_parameter<int>("frame_height", 480);
+        this->declare_parameter<double>("hough_circle_dp", 1.0);
+        this->declare_parameter<double>("hough_circle_min_dist", 150.0);
+        this->declare_parameter<double>("hough_circle_param1", 300.0);
+        this->declare_parameter<double>("hough_circle_param2", 25.0);
+        this->declare_parameter<int>("hough_circle_min_radius", 0);
+        this->declare_parameter<int>("hough_circle_max_radius", 0);
+
         // 创建三个话题用于发布红色、蓝色、绿色圆环的偏差坐标
         red_circle_publisher_ = this->create_publisher<std_msgs::msg::String>("/red_circle_offset", 10);
         blue_circle_publisher_ = this->create_publisher<std_msgs::msg::String>("/blue_circle_offset", 10);
@@ -33,13 +44,21 @@ public:
 
 private:
     void processImage() {
-        cv::VideoCapture cap(4); // 0表示默认摄像头
+        int camera_source;
+        this->get_parameter("camera_source", camera_source);
+
+        cv::VideoCapture cap(camera_source); // 0表示默认摄像头，Outside Parameter
         if (!cap.isOpened()) {
             RCLCPP_ERROR(this->get_logger(), "Failed to open camera.");
             return;
         }
-        cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);  // 设置宽度
-        cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480); // 设置高度
+
+        // 设置摄像头宽度和高度
+        int frame_width, frame_height;
+        this->get_parameter("frame_width", frame_width);
+        this->get_parameter("frame_height", frame_height);
+        cap.set(cv::CAP_PROP_FRAME_WIDTH, frame_width);  // 设置宽度，Outside Parameter
+        cap.set(cv::CAP_PROP_FRAME_HEIGHT, frame_height); // 设置高度，Outside Parameter
 
 
         cv::Point2f image_center(cap.get(cv::CAP_PROP_FRAME_WIDTH) / 2.0, cap.get(cv::CAP_PROP_FRAME_HEIGHT) / 2.0);
@@ -106,13 +125,19 @@ private:
             return; // 无效的颜色代码
         }
 
-        // 处理图像
-        
-        // cv::inRange(hsv, lower_color, upper_color, mask);
+        // 读取Hough Circle参数
+        double dp, min_dist, param1, param2;
+        int min_radius, max_radius;
+        this->get_parameter("hough_circle_dp", dp);
+        this->get_parameter("hough_circle_min_dist", min_dist);
+        this->get_parameter("hough_circle_param1", param1);
+        this->get_parameter("hough_circle_param2", param2);
+        this->get_parameter("hough_circle_min_radius", min_radius);
+        this->get_parameter("hough_circle_max_radius", max_radius);
 
         // 检测圆形
         std::vector<cv::Vec3f> circles;
-        cv::HoughCircles(mask, circles, cv::HOUGH_GRADIENT, 1, 150, 300, 25, 0, 0);
+        cv::HoughCircles(mask, circles, cv::HOUGH_GRADIENT, dp, min_dist, param1, param2, min_radius, max_radius);
 
         if (!circles.empty()) {
             cv::Vec3f c = circles[0];
