@@ -73,33 +73,37 @@ private:
             detectCircleAndPublish(frame, image_center, 3); // 绿色圆环
 
             // 显示结果（可选）
-            cv::imshow("Frame", frame);
+            // cv::imshow("Frame", frame);
             if (cv::waitKey(30) >= 0) break;
         }
     }
 
     void detectCircleAndPublish(cv::Mat& frame, const cv::Point2f& image_center, int color_code) {
-        // cv::Scalar lower_color, upper_color;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher;
         cv::Scalar circle_color; // 用于在图像上绘制圆环的颜色
 
+        // 预处理步骤
+        cv::Mat blurred_frame;
+        cv::GaussianBlur(frame, blurred_frame, cv::Size(5, 5), 0);
+
+
         // 红色范围1
-        cv::Scalar lower_red_1(0, 100, 100);
+        cv::Scalar lower_red_1(0, 120, 70);
         cv::Scalar upper_red_1(10, 255, 255);
         // 红色范围2
-        cv::Scalar lower_red_2(160, 100, 100);
+        cv::Scalar lower_red_2(170, 120, 70);
         cv::Scalar upper_red_2(180, 255, 255);
         // 绿色范围
-        cv::Scalar lower_green(35, 100, 100);
-        cv::Scalar upper_green(85, 255, 255);
+        cv::Scalar lower_green(45, 120, 70);
+        cv::Scalar upper_green(75, 255, 255);
         // 蓝色范围
-        cv::Scalar lower_blue(100, 100, 100);
+        cv::Scalar lower_blue(100, 120, 70);
         cv::Scalar upper_blue(140, 255, 255);
 
         // 筛选出不同颜色的部分
         cv::Mat red_mask_1, red_mask_2, green_mask, blue_mask;
         cv::Mat hsv, mask;
-        cv::cvtColor(frame, hsv, cv::COLOR_BGR2HSV);
+        cv::cvtColor(blurred_frame, hsv, cv::COLOR_BGR2HSV);
         cv::inRange(hsv, lower_red_1, upper_red_1, red_mask_1);
         cv::inRange(hsv, lower_red_2, upper_red_2, red_mask_2);
         cv::inRange(hsv, lower_green, upper_green, green_mask);
@@ -125,6 +129,26 @@ private:
             return; // 无效的颜色代码
         }
 
+        // 对HSV空间的V通道进行均衡化
+        std::vector<cv::Mat> hsv_channels;
+        cv::split(hsv, hsv_channels);
+        cv::equalizeHist(hsv_channels[2], hsv_channels[2]);
+        cv::merge(hsv_channels, hsv);
+
+        // 应用形态学操作
+        cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
+        cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
+        cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
+
+        // Canny边缘增强
+        cv::Mat edges;
+        cv::Canny(mask, edges, 50, 150);
+
+        // 中值滤波
+        cv::Mat processed_mask;
+        cv::medianBlur(mask, processed_mask, 5);
+
+
         // 读取Hough Circle参数
         double dp, min_dist, param1, param2;
         int min_radius, max_radius;
@@ -137,7 +161,7 @@ private:
 
         // 检测圆形
         std::vector<cv::Vec3f> circles;
-        cv::HoughCircles(mask, circles, cv::HOUGH_GRADIENT, dp, min_dist, param1, param2, min_radius, max_radius);
+        cv::HoughCircles(processed_mask, circles, cv::HOUGH_GRADIENT, dp, min_dist, param1, param2, min_radius, max_radius);        
 
         if (!circles.empty()) {
             cv::Vec3f c = circles[0];
@@ -161,6 +185,11 @@ private:
         else {
             RCLCPP_INFO(this->get_logger(), "Not found circle of color %d", color_code);
         }
+        
+        // DEBUG
+        // cv::imshow("FrameHSV", hsv);
+        // cv::imshow("Frame", frame);
+        // cv::imshow("BlurredFrame", blurred_frame);
     }
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr red_circle_publisher_;

@@ -1,6 +1,6 @@
 color_circle_detector:  # 节点名称必须与你的节点名称一致
   ros__parameters:      # ros__parameters 是一个必须包含的字段
-    camera_source: 4
+    camera_source: 0
     frame_width: 640
     frame_height: 480
     hough_circle_dp: 1.0
