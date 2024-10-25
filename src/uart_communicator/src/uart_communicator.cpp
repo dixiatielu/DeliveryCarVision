@@ -1,82 +1,93 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/string.hpp>
-#include <std_msgs/msg/float32.hpp>
-#include <boost/asio.hpp>
-#include <boost/bind/bind.hpp>
+#include <wiringPi.h>
+#include <wiringSerial.h>
+#include <poll.h>
+#include <string>
+#include <unistd.h>
 
-class UartCommunicator : public rclcpp::Node
-{
+class UARTCommunicator : public rclcpp::Node {
 public:
-    UartCommunicator()
-    : Node("uart_communicator"), io_(), serial_port_(io_)
-    {
-        // 初始化串口
-        try {
-            serial_port_.open("/dev/ttyS0");  // 根据实际串口设备名称修改
-            serial_port_.set_option(boost::asio::serial_port_base::baud_rate(115200));
-            serial_port_.set_option(boost::asio::serial_port_base::character_size(8));
-            serial_port_.set_option(boost::asio::serial_port_base::parity(boost::asio::serial_port_base::parity::none));
-            serial_port_.set_option(boost::asio::serial_port_base::stop_bits(boost::asio::serial_port_base::stop_bits::one));
-            serial_port_.set_option(boost::asio::serial_port_base::flow_control(boost::asio::serial_port_base::flow_control::none));
-        } catch (boost::system::system_error &e) {
-            RCLCPP_ERROR(this->get_logger(), "无法打开串口: %s", e.what());
+    UARTCommunicator() : Node("uart_communicator"), uart_fd(-1), qr_code_data_(""), data_sent_(false) {
+        // 打开串口设备
+        uart_fd = serialOpen("/dev/ttyS5", 9600);
+        if (uart_fd < 0) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to open /dev/ttyS5");
+            rclcpp::shutdown();
+            return;
         }
 
-        // 订阅话题
-        qr_code_subscriber_ = this->create_subscription<std_msgs::msg::String>(
+        // 初始化 wiringPi
+        wiringPiSetup();
+
+        // 订阅 /qr_code_info 话题
+        subscription_ = this->create_subscription<std_msgs::msg::String>(
             "/qr_code_info", 10,
-            std::bind(&UartCommunicator::qrCodeCallback, this, std::placeholders::_1));
+            [this](std_msgs::msg::String::UniquePtr msg) {
+                if (!data_sent_) {
+                    qr_code_data_ = msg->data;
+                    sendData();
+                    data_sent_ = true;
+                }
+            }
+        );
 
-        red_circle_subscriber_ = this->create_subscription<std_msgs::msg::Float32>(
-            "/red_circle_offset", 10,
-            [this](const std_msgs::msg::Float32::SharedPtr msg) { this->circleOffsetCallback(msg, "red"); });
+        // 使用线程来处理串口事件
+        uart_thread_ = std::thread([this]() { checkSerialInput(); });
+    }
 
-        blue_circle_subscriber_ = this->create_subscription<std_msgs::msg::Float32>(
-            "/blue_circle_offset", 10,
-            [this](const std_msgs::msg::Float32::SharedPtr msg) { this->circleOffsetCallback(msg, "blue"); });
-
-        green_circle_subscriber_ = this->create_subscription<std_msgs::msg::Float32>(
-            "/green_circle_offset", 10,
-            [this](const std_msgs::msg::Float32::SharedPtr msg) { this->circleOffsetCallback(msg, "green"); });
+    ~UARTCommunicator() {
+        if (uart_fd >= 0) {
+            serialClose(uart_fd);
+        }
+        if (uart_thread_.joinable()) {
+            uart_thread_.join();
+        }
     }
 
 private:
-    void qrCodeCallback(const std_msgs::msg::String::SharedPtr msg)
-    {
-        RCLCPP_INFO(this->get_logger(), "接收到二维码信息: %s", msg->data.c_str());
-
-        // 通过UART发送信息
-        if (serial_port_.is_open()) {
-            try {
-                std::string data = msg->data + "\n";  // 添加换行符作为结束符
-                boost::asio::write(serial_port_, boost::asio::buffer(data));
-            } catch (boost::system::system_error &e) {
-                RCLCPP_ERROR(this->get_logger(), "串口发送错误: %s", e.what());
-            }
-        } else {
-            RCLCPP_WARN(this->get_logger(), "串口未打开，无法发送数据");
+    void sendData() {
+        if (!qr_code_data_.empty() && uart_fd >= 0) {
+            serialPuts(uart_fd, qr_code_data_.c_str());
+            RCLCPP_INFO(this->get_logger(), "Sent data: %s", qr_code_data_.c_str());
         }
     }
 
-    void circleOffsetCallback(const std_msgs::msg::Float32::SharedPtr msg, const std::string &color)
-    {
-        RCLCPP_INFO(this->get_logger(), "接收到%s圆偏移量: %f", color.c_str(), msg->data);
+    void checkSerialInput() {
+        struct pollfd fds;
+        fds.fd = uart_fd;
+        fds.events = POLLIN;
+
+        while (rclcpp::ok()) {
+            int ret = poll(&fds, 1, -1); // 无限等待直到串口有数据
+            if (ret > 0) {
+                if (fds.revents & POLLIN) {
+                    std::string input;
+                    while (serialDataAvail(uart_fd) > 0) {
+                        char c = serialGetchar(uart_fd);
+                        input += c;
+                        usleep(100);  // 防止读取速度过快
+                    }
+                    RCLCPP_INFO(this->get_logger(), "Received data: %s", input.c_str());
+
+                    if (input.find("GET_QR") != std::string::npos) {
+                        sendData();
+                    }
+                }
+            }
+        }
     }
 
-    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr qr_code_subscriber_;
-    rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr red_circle_subscriber_;
-    rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr blue_circle_subscriber_;
-    rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr green_circle_subscriber_;
-
-    boost::asio::io_service io_;
-    boost::asio::serial_port serial_port_;
+    int uart_fd;
+    std::string qr_code_data_;
+    bool data_sent_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
+    std::thread uart_thread_;
 };
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<UartCommunicator>();
-    rclcpp::spin(node);
+    rclcpp::spin(std::make_shared<UARTCommunicator>());
     rclcpp::shutdown();
     return 0;
 }

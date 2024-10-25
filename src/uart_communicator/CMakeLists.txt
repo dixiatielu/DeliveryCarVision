@@ -9,13 +9,10 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
-find_package(Boost REQUIRED COMPONENTS system)
 
-include_directories(${Boost_INCLUDE_DIRS})
-
-add_executable(uart_communicator_node src/uart_communicator.cpp)
-ament_target_dependencies(uart_communicator_node rclcpp std_msgs Boost)
-target_link_libraries(uart_communicator_node ${Boost_LIBRARIES})
+add_executable(uart_communicator src/uart_communicator.cpp)
+ament_target_dependencies(uart_communicator rclcpp std_msgs)
+target_link_libraries(uart_communicator wiringPi)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -29,7 +26,7 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-install(TARGETS uart_communicator_node
+install(TARGETS uart_communicator
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

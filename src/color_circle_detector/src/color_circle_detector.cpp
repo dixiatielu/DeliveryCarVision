@@ -47,7 +47,7 @@ private:
         int camera_source;
         this->get_parameter("camera_source", camera_source);
 
-        cv::VideoCapture cap(camera_source); // 0表示默认摄像头，Outside Parameter
+        cv::VideoCapture cap(camera_source, cv::CAP_V4L2); // 0表示默认摄像头，Outside Parameter
         if (!cap.isOpened()) {
             RCLCPP_ERROR(this->get_logger(), "Failed to open camera.");
             return;

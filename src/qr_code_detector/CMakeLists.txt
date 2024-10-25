@@ -33,5 +33,14 @@ add_executable(qr_code_detector src/qr_code_detector.cpp)
 ament_target_dependencies(qr_code_detector rclcpp std_msgs sensor_msgs OpenCV ZBAR)
 install(TARGETS qr_code_detector
         DESTINATION lib/${PROJECT_NAME})
+# 安装 launch 文件
+install(DIRECTORY launch/
+  DESTINATION share/${PROJECT_NAME}/launch
+)
+# 安装 config 文件夹
+install(DIRECTORY config/
+  DESTINATION share/${PROJECT_NAME}/config
+)
+
 
 ament_package()
