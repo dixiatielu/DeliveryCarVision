@@ -187,9 +187,9 @@ private:
         }
         
         // DEBUG
-        // cv::imshow("FrameHSV", hsv);
-        // cv::imshow("Frame", frame);
-        // cv::imshow("BlurredFrame", blurred_frame);
+        cv::imshow("FrameHSV", hsv);
+        cv::imshow("Frame", frame);
+        cv::imshow("BlurredFrame", blurred_frame);
     }
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr red_circle_publisher_;

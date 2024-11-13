@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
     libboost-all-dev \
     supervisor
 
-# 复制你的ROS包到容器内
+# 复制ROS包到容器内
 COPY . /ros_ws
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 

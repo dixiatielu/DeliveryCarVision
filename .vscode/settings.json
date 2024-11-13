@@ -71,5 +71,6 @@
         "thread": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp"
-    }
+    },
+    "cmake.ignoreCMakeListsMissing": true
 }
