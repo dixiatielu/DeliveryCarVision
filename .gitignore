@@ -6,3 +6,5 @@ log/
 *.local.*
 
 runs/
+
+prompt*.md
