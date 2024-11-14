@@ -4,6 +4,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <std_msgs/msg/string.hpp>
+#include <std_msgs/msg/u_int8_multi_array.hpp>
 #include <opencv2/opencv.hpp>
 #include <zbar.h>
 #include <opencv2/imgproc.hpp>
@@ -22,6 +23,8 @@ public:
         // 使用QoS将消息设置为持久化
         auto qos = rclcpp::QoS(rclcpp::KeepLast(1)).transient_local();
         publisher_ = this->create_publisher<std_msgs::msg::String>("qr_code_info", qos);
+        serial_publisher_ = this->create_publisher<std_msgs::msg::UInt8MultiArray>("/serial_write", qos);
+
         int camera_source;
         this->get_parameter<int>("camera_source", camera_source);
         
@@ -48,6 +51,7 @@ private:
         cap_ >> frame;
 
         if (frame.empty()) {
+            RCLCPP_ERROR(this->get_logger(), "Captured empty frame");
             return;
         }
         // 转换为灰度图像
@@ -69,13 +73,24 @@ private:
                 std_msgs::msg::String msg;
                 msg.data = data;
                 publisher_->publish(msg);
+
+                // 将二维码信息转换为ASCII码并发布
+                auto ascii_msg = std_msgs::msg::UInt8MultiArray();
+                for (char c : data) {
+                    ascii_msg.data.push_back(static_cast<uint8_t>(c));
+                }
+                serial_publisher_->publish(ascii_msg);
+
                 cap_.release(); // 识别到二维码后释放摄像头
+
+                timer_->cancel(); // 取消定时器
                 break; // 识别到一个二维码后退出
             }
         }
     }
 
     rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_;
+    rclcpp::Publisher<std_msgs::msg::UInt8MultiArray>::SharedPtr serial_publisher_;
     cv::VideoCapture cap_;
     rclcpp::TimerBase::SharedPtr timer_;
 };
