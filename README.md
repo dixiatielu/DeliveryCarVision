@@ -26,4 +26,6 @@ ros2 run usb_cam usb_cam_node_exe --ros-args --params-file ./config/cam_params.y
 ros2 launch yolo_bringup yolo.launch.py imgsz_height:=640 imgsz_width:=640 device:=cpu half:=True model:=ccv2-y11n_ncnn_model use_tracking:=False input_image_topic:=/image_raw use_debug:=True
 # 启动串口节点
 ros2 launch serial_driver serial_driver_bridge_node.launch.py params_file:=config/serial.params.yaml
+# 启动圆环检测节点
+ros2 run circle_detector circle_detector
 ```
