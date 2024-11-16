@@ -43,3 +43,5 @@ ros2 launch serial_driver serial_driver_bridge_node.launch.py params_file:=confi
 # 启动圆环检测节点
 ros2 run circle_detector circle_detector
 ```
+
+Docker是上一版本使用的运行环境，现在已经不再使用。请直接在本地运行。
