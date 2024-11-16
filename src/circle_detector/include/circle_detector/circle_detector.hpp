@@ -19,6 +19,7 @@ private:
     std::deque<std::pair<float, float>> detected_poses_;
     const int image_width_ = 640;
     const int image_height_ = 480;
+    bool yolo_enabled_; // YOLO回调使能
     
     // 订阅者
     rclcpp::Subscription<yolo_msgs::msg::DetectionArray>::SharedPtr yolo_sub_;
@@ -34,6 +35,8 @@ private:
     void serialCallback(const std_msgs::msg::UInt8MultiArray::SharedPtr msg);
     
     // 辅助函数
+    std::string getCurrentRegion();
+    std::string getCurrentColorCode();
     std::string getCurrentColor();
     std::string getCurrentTarget();
     bool checkPositionStable(float x, float y);

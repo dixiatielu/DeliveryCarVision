@@ -15,6 +15,7 @@ def generate_launch_description():
             package='qr_code_detector',
             executable='qr_code_detector',
             name='qr_code_detector',
-            parameters=[config_file_path]
+            parameters=[config_file_path],
+            respawn=True
         )
     ])

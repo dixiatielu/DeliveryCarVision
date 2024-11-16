@@ -8,3 +8,5 @@ log/
 runs/
 
 prompt*.md
+
+__pycache__/
